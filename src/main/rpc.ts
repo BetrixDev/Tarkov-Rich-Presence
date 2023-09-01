@@ -148,9 +148,13 @@ events.on("newGameSession", () => {
 });
 
 events.on("endGameSession", () => {
-  client.destroy();
+  if (client.user) {
+    client.destroy();
+  }
 });
 
 events.on("killWatcher", () => {
-  client.destroy();
+  if (client.user) {
+    client.destroy();
+  }
 });
