@@ -110,13 +110,14 @@ function createWindow(): void {
     return { action: "deny" };
   });
 
-  mainWindow.on("minimize", (event) => {
-    event.preventDefault();
-    handleMinimize();
+  mainWindow.on("minimize", () => {
+    if (!is.dev) {
+      handleMinimize();
+    }
   });
 
   mainWindow.on("close", (event) => {
-    if (!isQuitting && !getConfig().shouldCloseButtonQuit) {
+    if (!isQuitting && !getConfig().shouldCloseButtonQuit && !is.dev) {
       event.preventDefault();
       handleMinimize();
     } else {
