@@ -109,7 +109,7 @@ export function spawnWatcher() {
 
         const url = stripURL(extractedLine);
 
-        if (!url) return; // edge-case
+        if (!url) return;
 
         // if (url.includes("getTraderAssort")) {
         //   events.emit("updateGameEvent", "trader-screen", undefined);
@@ -143,6 +143,10 @@ export function spawnWatcher() {
 
           parseNewRaid(path);
         }
+      } else if (path.includes(" notifications.log")) {
+        const extractedLine = await readLastLines(path, 1);
+
+        console.log(extractedLine);
       }
     });
 

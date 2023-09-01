@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, Menu, Tray, nativeImage, Notification } from "electron";
-import { join } from "path";
+import path, { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -10,6 +10,17 @@ import { fetchTarkovDevData } from "./gql";
 
 import "./watcher";
 import "./rpc";
+
+const appFolder = path.dirname(process.execPath);
+const updateExe = path.resolve(appFolder, "..", "Update.exe");
+const exeName = path.basename(process.execPath);
+
+app.setLoginItemSettings({
+  openAtLogin: getConfig().openOnStartup,
+  path: updateExe,
+  args: ["--processStart", `"${exeName}"`, "--process-start-args", '"--hidden"'],
+  name: "Tarkov Rich Presence",
+});
 
 export function tryMakeConfig() {
   if (!existsSync(ROOT_PATH)) {
@@ -73,6 +84,7 @@ export function overwriteDefaultConfig() {
 
 let isQuitting = false;
 let mainWindow: BrowserWindow;
+let tray: Tray;
 
 function handleMinimize() {
   mainWindow.hide();
@@ -102,7 +114,9 @@ function createWindow(): void {
   });
 
   mainWindow.on("ready-to-show", () => {
-    mainWindow.show();
+    if (!getConfig().minimizedOnStartup && !process.argv.includes("hidden")) {
+      mainWindow.show();
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -111,13 +125,11 @@ function createWindow(): void {
   });
 
   mainWindow.on("minimize", () => {
-    if (!is.dev) {
-      handleMinimize();
-    }
+    handleMinimize();
   });
 
   mainWindow.on("close", (event) => {
-    if (!isQuitting && !getConfig().shouldCloseButtonQuit && !is.dev) {
+    if (!isQuitting && !getConfig().shouldCloseButtonQuit) {
       event.preventDefault();
       handleMinimize();
     } else {
@@ -180,7 +192,18 @@ app.whenReady().then(async () => {
     return;
   });
 
-  const contextMenu = Menu.buildFromTemplate([
+  const menuConstructorOptions: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: "Master Switch",
+      click: (c) => {
+        const newValue = !getConfig().isEnabled;
+
+        updateConfig("isEnabled", newValue);
+        c.checked = newValue;
+      },
+      checked: getConfig().isEnabled,
+      type: "checkbox",
+    },
     {
       label: "Show App",
       click: () => {
@@ -196,9 +219,13 @@ app.whenReady().then(async () => {
       },
       type: "normal",
     },
-  ]);
+  ];
 
-  const tray = new Tray(nativeImage.createFromDataURL("../../resources/icon.ico"));
+  const contextMenu = Menu.buildFromTemplate(menuConstructorOptions).on("menu-will-show", () => {
+    tray.setContextMenu(contextMenu);
+  });
+
+  tray = new Tray(nativeImage.createFromPath("../../resources/icon.ico"));
   tray.setToolTip("Tarkov Rich Presence");
   tray.setContextMenu(contextMenu);
 
@@ -207,7 +234,7 @@ app.whenReady().then(async () => {
   });
 
   // Set app user model id for windows
-  electronApp.setAppUserModelId("com.electron");
+  electronApp.setAppUserModelId("TarkovRichPresence");
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

@@ -4,6 +4,7 @@ import { Button } from "./components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Config } from "src/config";
 import { Separator } from "./components/ui/separator";
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
 
 function App(): JSX.Element {
   const { data: config, refetch: refetchConfig } = useQuery({
@@ -73,12 +74,47 @@ function App(): JSX.Element {
             </Button>
 
             <Separator />
-            <div className="gap-2 flex font-semibold">
-              <Switch
-                checked={config.shouldCloseButtonQuit}
-                onClick={() => updateConfig("shouldCloseButtonQuit", !config.shouldCloseButtonQuit)}
-              />
-              Close button should quit
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div
+                    className="gap-2 flex font-semibold"
+                    onClick={() => updateConfig("shouldCloseButtonQuit", !config.shouldCloseButtonQuit)}
+                  >
+                    <Switch checked={config.shouldCloseButtonQuit} />
+                    Close button should quit
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="w-64">
+                  <p>
+                    If false, pressing the close or minimize button will minimize the program to the system
+                    tray and will stay running in the background
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div
+                    className="gap-2 flex font-semibold"
+                    onClick={() => updateConfig("openOnStartup", !config.openOnStartup)}
+                  >
+                    <Switch checked={config.openOnStartup} />
+                    Open on startup?
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="w-64">
+                  <p>If true, the program will open automatically when Windows starts up</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <div
+              className="gap-2 flex font-semibold"
+              onClick={() => updateConfig("minimizedOnStartup", !config.minimizedOnStartup)}
+            >
+              <Switch checked={config.minimizedOnStartup} />
+              Minimized on Startup?
             </div>
           </div>
         </CardContent>
