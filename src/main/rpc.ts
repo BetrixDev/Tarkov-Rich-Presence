@@ -18,7 +18,7 @@ events.on("newGameSession", () => {
     .then((client) => {
       client.setActivity({
         largeImageText: "Escape from Tarkov",
-        largeImageKey: "cover-image",
+        largeImageKey: "cover-large",
         startTimestamp: gameStartTime,
         details: "Browsing The Menus",
       });
@@ -38,7 +38,7 @@ events.on("newGameSession", () => {
         if (event.data.type === "Offline") {
           client.setActivity({
             largeImageText: "Escape from Tarkov",
-            largeImageKey: "cover-image",
+            largeImageKey: "cover-large",
             startTimestamp: raidStartTime,
             details: "In an offline Raid",
             state: "Playing Solo",
@@ -62,7 +62,7 @@ events.on("newGameSession", () => {
             .catch(() => {
               client.setActivity({
                 largeImageText: "Escape from Tarkov",
-                largeImageKey: "cover-image",
+                largeImageKey: "cover-large",
                 startTimestamp: raidStartTime,
                 details: "In a Raid",
                 state: "Playing Solo",
@@ -74,7 +74,7 @@ events.on("newGameSession", () => {
       case "main-menu":
         client.setActivity({
           largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-image",
+          largeImageKey: "cover-large",
           startTimestamp: gameStartTime,
           details: "Browsing the Menus",
         });
@@ -82,7 +82,7 @@ events.on("newGameSession", () => {
       case "trader-screen":
         client.setActivity({
           largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-image",
+          largeImageKey: "cover-large",
           startTimestamp: gameStartTime,
           details: "Browsing the Vendors",
         });
@@ -90,7 +90,7 @@ events.on("newGameSession", () => {
       case "flea-market-screen":
         client.setActivity({
           largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-image",
+          largeImageKey: "cover-large",
           startTimestamp: gameStartTime,
           details: "Browsing the Flea Market",
         });
@@ -100,7 +100,7 @@ events.on("newGameSession", () => {
           case "insurance":
             client.setActivity({
               largeImageText: "Escape from Tarkov",
-              largeImageKey: "cover-image",
+              largeImageKey: "cover-large",
               startTimestamp: gameStartTime,
               details: "Preparing to Escape",
               state: "Insurance",
@@ -109,7 +109,7 @@ events.on("newGameSession", () => {
           case "confirmation":
             client.setActivity({
               largeImageText: "Escape from Tarkov",
-              largeImageKey: "cover-image",
+              largeImageKey: "cover-large",
               startTimestamp: gameStartTime,
               details: "Preparing to Escape",
               state: "Waiting to Confirm",
@@ -118,7 +118,7 @@ events.on("newGameSession", () => {
           case "looking-for-group":
             client.setActivity({
               largeImageText: "Escape from Tarkov",
-              largeImageKey: "cover-image",
+              largeImageKey: "cover-large",
               startTimestamp: gameStartTime,
               details: "Preparing to Escape",
               state: "Looking for Group",
@@ -129,7 +129,7 @@ events.on("newGameSession", () => {
       case "looking-for-raid":
         client.setActivity({
           largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-image",
+          largeImageKey: "cover-large",
           startTimestamp: Date.now(),
           details: "Searching for a Raid",
         });
@@ -138,7 +138,7 @@ events.on("newGameSession", () => {
       case "raid-end":
         client.setActivity({
           largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-image",
+          largeImageKey: "cover-large",
           startTimestamp: gameStartTime,
           details: "Raid ended",
         });
