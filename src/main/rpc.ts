@@ -41,7 +41,7 @@ events.on("newGameSession", () => {
             largeImageKey: "cover-large",
             startTimestamp: raidStartTime,
             details: "In an offline Raid",
-            state: "Playing Solo",
+            // state: "Playing Solo",
           });
         } else {
           const mapId = event.data.map;
@@ -54,9 +54,10 @@ events.on("newGameSession", () => {
                 largeImageText: mapData.name,
                 largeImageKey: `${mapData.name.toLowerCase().split(" ")[0]}-large`,
                 startTimestamp: raidStartTime,
-                endTimestamp: raidStartTime + mapData.raidDuration * 60 * 1000,
+                // endTimestamp: raidStartTime + mapData.raidDuration * 60 * 1000,
+                endTimestamp: raidStartTime,
                 details: "In a Raid",
-                state: "Playing Solo",
+                // state: "Playing Solo",
               });
             })
             .catch(() => {
@@ -65,7 +66,7 @@ events.on("newGameSession", () => {
                 largeImageKey: "cover-large",
                 startTimestamp: raidStartTime,
                 details: "In a Raid",
-                state: "Playing Solo",
+                // state: "Playing Solo",
               });
             });
         }
