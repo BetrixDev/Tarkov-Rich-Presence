@@ -8,17 +8,17 @@ import { ROOT_PATH, CONFIG_PATH } from "../constants";
 import { events } from "./events";
 import { fetchTarkovDevData } from "./gql";
 
+require("update-electron-app")();
+
 import "./watcher";
 import "./rpc";
 
-const appFolder = path.dirname(process.execPath);
-const updateExe = path.resolve(appFolder, "..", "Update.exe");
 const exeName = path.basename(process.execPath);
 
 app.setLoginItemSettings({
   openAtLogin: getConfig().openOnStartup,
-  path: updateExe,
-  args: ["--processStart", `"${exeName}"`, "--process-start-args", '"--hidden"'],
+  path: process.execPath,
+  args: ["--processStart", `"${exeName}"`, "--process-start-args", "--hidden"],
   name: "Tarkov Rich Presence",
 });
 

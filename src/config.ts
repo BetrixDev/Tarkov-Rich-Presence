@@ -4,7 +4,7 @@ export const configSchema = z.object({
   exePath: z.string().default("C:\\Battlestate Games\\eft (live)\\EscapeFromTarkov.exe"),
   isEnabled: z.boolean().default(true),
   shouldCloseButtonQuit: z.boolean().default(false),
-  openOnStartup: z.boolean().default(false),
+  openOnStartup: z.boolean().default(true),
   minimizedOnStartup: z.boolean().default(false),
 });
 
