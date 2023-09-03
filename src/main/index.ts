@@ -13,14 +13,16 @@ require("update-electron-app")();
 import "./watcher";
 import "./rpc";
 
-const exeName = path.basename(process.execPath);
+function setLoginItemSettings(enabled: boolean) {
+  const exeName = path.basename(process.execPath);
 
-app.setLoginItemSettings({
-  openAtLogin: getConfig().openOnStartup,
-  path: process.execPath,
-  args: ["--processStart", `"${exeName}"`, "--process-start-args", "--hidden"],
-  name: "Tarkov Rich Presence",
-});
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    path: process.execPath,
+    args: ["--processStart", `"${exeName}"`, "--process-start-args", "--hidden"],
+    name: "Tarkov Rich Presence",
+  });
+}
 
 export function tryMakeConfig() {
   if (!existsSync(ROOT_PATH)) {
@@ -61,6 +63,8 @@ export function updateConfig<TKey extends keyof Config>(key: TKey, value: Config
     } else {
       events.emit("killWatcher");
     }
+  } else if (key === "openOnStartup") {
+    setLoginItemSettings(value as boolean);
   }
 
   const config = getConfig();
@@ -103,6 +107,8 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 400,
     height: 540,
+    minWidth: 400,
+    minHeight: 540,
     show: false,
     autoHideMenuBar: true,
     backgroundMaterial: "mica",
@@ -110,8 +116,13 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
+      devTools: is.dev,
     },
   });
+
+  if (!is.dev) {
+    mainWindow.removeMenu();
+  }
 
   mainWindow.on("ready-to-show", () => {
     if (!getConfig().minimizedOnStartup && !process.argv.includes("hidden")) {
@@ -154,6 +165,8 @@ function createWindow(): void {
 app.whenReady().then(async () => {
   // Create config.json and the paths associated
   tryMakeConfig();
+
+  setLoginItemSettings(getConfig().openOnStartup);
 
   try {
     await fetchTarkovDevData();
