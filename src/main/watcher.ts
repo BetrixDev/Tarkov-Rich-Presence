@@ -1,12 +1,12 @@
 import { watch } from "chokidar";
-import { events } from "./events";
 import { getConfig } from ".";
 import { read as readLastLines } from "read-last-lines";
-import { execSync } from "child_process";
 import { readFileSync } from "fs";
 import * as z from "zod";
+import { watcherEvents } from "./watcher-events";
+import { STATE } from "./rp-state";
+import { gameEvents } from "./game-events";
 
-let isGameRunning = false;
 let isInRaid = false;
 
 const URL_REGEXP =
@@ -26,7 +26,7 @@ function stripURL(str: string) {
 }
 
 const groupsSchema = z.object({
-  raidMode: z.union([z.literal("Online"), z.literal("Offline")]),
+  raidMode: z.literal("Online"),
   serverIP: z.string(),
   location: z.string(),
 });
@@ -52,7 +52,7 @@ function parseNewRaid(path: string) {
 
   if (!parsed.success) return;
 
-  events.emit("updateGameEvent", {
+  gameEvents.emit("updateGameState", {
     type: "new-raid",
     data: {
       map: parsed.data.location.toLowerCase(),
@@ -63,7 +63,7 @@ function parseNewRaid(path: string) {
   isInRaid = true;
 }
 
-events.on("spawnWatcher", () => {
+watcherEvents.on("spawnLogWatcher", () => {
   spawnWatcher();
 });
 
@@ -71,12 +71,15 @@ export function spawnWatcher() {
   const watchPath = `${getConfig().exePath.replace("\\EscapeFromTarkov.exe", "")}\\Logs`;
 
   function handleNewGameSession() {
-    isGameRunning = true;
-    events.emit("newGameSession");
+    if (!STATE.clientLoggedIn()) {
+      gameEvents.emit("loginClient");
+    } else {
+      gameEvents.emit("newGameSession");
+    }
     spawnWatchForEnd();
   }
 
-  const watcher = watch(`${watchPath}`, {
+  const watcher = watch(watchPath, {
     persistent: true,
     ignoreInitial: true,
     atomic: true,
@@ -86,12 +89,12 @@ export function spawnWatcher() {
     depth: 2,
   })
     .once("ready", () => {
-      if (isGameRunning || checkIfProcessRunning()) {
+      if (STATE.isGameRunning()) {
         handleNewGameSession();
       }
     })
     .on("add", () => {
-      if (!isGameRunning) {
+      if (STATE.isGameRunning()) {
         handleNewGameSession();
       }
     })
@@ -103,7 +106,7 @@ export function spawnWatcher() {
         if (extractedLine.includes("TRACE-NetworkGameCreate 5")) {
           parseNewRaid(path);
         } else if (extractedLine.includes("TRACE-NetworkGameMatching")) {
-          events.emit("updateGameEvent", { type: "looking-for-raid" });
+          gameEvents.emit("updateGameState", { type: "looking-for-raid" });
           isInRaid = true;
         }
 
@@ -111,31 +114,26 @@ export function spawnWatcher() {
 
         if (!url) return;
 
-        // if (url.includes("getTraderAssort")) {
-        //   events.emit("updateGameEvent", "trader-screen", undefined);
-        // } else if (url.includes("ragfair")) {
-        //   events.emit("updateGameEvent", "flea-market-screen", undefined);
-        // } else
         if (url.includes("insurance/items/list/cost")) {
-          events.emit("updateGameEvent", { type: "prepare-to-escape", state: "insurance" });
+          gameEvents.emit("updateGameState", { type: "prepare-to-escape", state: "insurance" });
           isInRaid = false;
         } else if (
           url.includes("match/group/invite/cancel-all") ||
           url.includes("match/group/looking/stop")
         ) {
-          events.emit("updateGameEvent", { type: "prepare-to-escape", state: "confirmation" });
+          gameEvents.emit("updateGameState", { type: "prepare-to-escape", state: "confirmation" });
           isInRaid = false;
         } else if (url.includes("match/group/status")) {
-          events.emit("updateGameEvent", { type: "prepare-to-escape", state: "looking-for-group" });
+          gameEvents.emit("updateGameState", { type: "prepare-to-escape", state: "looking-for-group" });
           isInRaid = false;
         } else if (url.includes("client/putMetrics") || url.includes("/match/offline/end")) {
           isInRaid = false;
-          events.emit("updateGameEvent", { type: "raid-end" });
+          gameEvents.emit("updateGameState", { type: "raid-end" });
         } else if (url.includes("client/items")) {
           isInRaid = false;
-          events.emit("updateGameEvent", { type: "main-menu" });
-        } else if (url.includes("bot/generate")) {
-          events.emit("updateGameEvent", { type: "new-raid", data: { type: "Offline" } });
+          gameEvents.emit("updateGameState", { type: "main-menu" });
+        } else if (url.includes("bot/generate") || url.includes("getTraderAssort")) {
+          gameEvents.emit("updateGameState", { type: "new-raid", data: { type: "Offline" } });
           isInRaid = true;
         } else if (url.includes("game/keepalive")) {
           // already aknowledged the raid
@@ -143,34 +141,21 @@ export function spawnWatcher() {
 
           parseNewRaid(path);
         }
-      } else if (path.includes(" notifications.log")) {
-        const extractedLine = await readLastLines(path, 1);
-
-        console.log(extractedLine);
       }
     });
 
-  events.on("killWatcher", handleKillWatcher);
-  function handleKillWatcher() {
+  watcherEvents.on("killLogWatcher", () => {
+    watcherEvents.removeAllListeners("killLogWatcher");
     watcher.close();
-    events.off("killWatcher", handleKillWatcher);
-  }
-}
-
-function checkIfProcessRunning() {
-  try {
-    const result = execSync('tasklist | find /i "EscapeFromTarkov.exe"');
-    return result.toString().length > 0;
-  } catch {
-    return false;
-  }
+    gameEvents.emit("destroyClient");
+  });
 }
 
 function spawnWatchForEnd() {
   function intervalHandler() {
-    const isProcessRunning = checkIfProcessRunning();
+    const processRunning = STATE.isGameRunning();
 
-    if (!isProcessRunning) {
+    if (!processRunning) {
       handleEndSession();
     }
   }
@@ -179,8 +164,7 @@ function spawnWatchForEnd() {
 
   function handleEndSession() {
     clearInterval(interval);
-    events.emit("endGameSession");
-    events.emit("killWatcher");
-    isGameRunning = false;
+    gameEvents.emit("endGameSession");
+    watcherEvents.emit("killLogWatcher");
   }
 }

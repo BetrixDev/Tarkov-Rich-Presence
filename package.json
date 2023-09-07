@@ -41,8 +41,10 @@
     "interprocess": "^0.2.6",
     "react-hook-form": "^7.45.4",
     "read-last-lines": "^1.8.0",
+    "strict-event-emitter": "^0.5.0",
     "tailwind-merge": "^1.14.0",
     "tailwindcss-animate": "^1.0.7",
+    "ts-pattern": "^5.0.5",
     "update-electron-app": "^2.0.1",
     "zod": "^3.22.2"
   },

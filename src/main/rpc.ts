@@ -1,160 +1,144 @@
-import { Client } from "discord-rpc";
-import { events } from "./events";
-import { Notification } from "electron";
+import { Client, Presence } from "discord-rpc";
+import { gameEvents } from "./game-events";
+import { STATE } from "./rp-state";
+import { match } from "ts-pattern";
+import { getConfig } from ".";
 import { getData } from "./gql";
 
 let gameStartTime = 0;
 let raidStartTime = 0;
 
-const CLIENT_ID = "1145768497398415440";
+const ACTIVITIES = {
+  browsingMenus: () => ({
+    largeImageText: "Escape from Tarkov",
+    largeImageKey: "cover-large",
+    startTimestamp: gameStartTime,
+    details: "Browsing The Menus",
+  }),
+  launcher: () => ({
+    largeImageText: "Escape from Tarkov",
+    largeImageKey: "cover-large",
+    startTimestamp: Date.now(),
+    details: "In the Launcher",
+  }),
+  prepareInsurance: () => ({
+    largeImageText: "Escape from Tarkov",
+    largeImageKey: "cover-large",
+    startTimestamp: gameStartTime,
+    details: "Preparing to Escape",
+    state: "Buying Insurance",
+  }),
+  prepareConfirmation: () => ({
+    largeImageText: "Escape from Tarkov",
+    largeImageKey: "cover-large",
+    startTimestamp: gameStartTime,
+    details: "Preparing to Escape",
+    state: "Waiting to Confirm",
+  }),
+  prepateLFG: () => ({
+    largeImageText: "Escape from Tarkov",
+    largeImageKey: "cover-large",
+    startTimestamp: gameStartTime,
+    details: "Preparing to Escape",
+    state: "Looking for Group",
+  }),
+  lookingForRaid: () => ({
+    largeImageText: "Escape from Tarkov",
+    largeImageKey: "cover-large",
+    startTimestamp: Date.now(),
+    details: "Searching for a Raid",
+  }),
+  raidEnd: () => ({
+    largeImageText: "Escape from Tarkov",
+    largeImageKey: "cover-large",
+    startTimestamp: gameStartTime,
+    details: "Raid ended",
+  }),
+  offlineRaid: () => ({
+    largeImageText: "Escape from Tarkov",
+    largeImageKey: "cover-large",
+    startTimestamp: raidStartTime,
+    details: "In an offline Raid",
+  }),
+} as const satisfies Record<string, () => Presence>;
 
 const client = new Client({ transport: "ipc" });
 
-events.on("newGameSession", () => {
-  gameStartTime = Date.now();
+gameEvents.on("loginClient", async () => {
+  STATE.setClientLoggedIn(true);
+  await client.login({ clientId: "1145768497398415440" });
 
-  client
-    .login({ clientId: CLIENT_ID })
-    .then((client) => {
-      client.setActivity({
-        largeImageText: "Escape from Tarkov",
-        largeImageKey: "cover-large",
-        startTimestamp: gameStartTime,
-        details: "Browsing The Menus",
-      });
-    })
-    .catch(() => {
-      new Notification({
-        title: "Tarkov Rich Presence",
-        body: "There was an error connecting to the Discord client. Please check your internet connection and try again",
-      });
+  if (STATE.isLauncherRunning() && getConfig().watchLauncher) {
+    client.setActivity(ACTIVITIES.launcher());
+
+    gameEvents.on("newGameSession", () => {
+      gameEvents.removeAllListeners("newGameSession");
+
+      gameStartTime = Date.now();
+      client.setActivity(ACTIVITIES.browsingMenus());
+      listenToGameEvents();
     });
+  } else if (STATE.isGameRunning()) {
+    gameStartTime = Date.now();
+    client.setActivity(ACTIVITIES.browsingMenus());
+    listenToGameEvents();
+  }
 
-  events.on("updateGameEvent", (event) => {
-    switch (event.type) {
-      case "new-raid":
-        raidStartTime = Date.now();
+  function listenToGameEvents() {
+    gameEvents.on("updateGameState", async (gameState) => {
+      const newActivity = await match(gameState)
+        .returnType<Presence | Promise<Presence>>()
+        .with({ type: "main-menu" }, () => ACTIVITIES.browsingMenus())
+        .with({ type: "prepare-to-escape", state: "insurance" }, () => ACTIVITIES.prepareInsurance())
+        .with({ type: "prepare-to-escape", state: "confirmation" }, () => ACTIVITIES.prepareConfirmation())
+        .with({ type: "prepare-to-escape", state: "looking-for-group" }, () => ACTIVITIES.prepateLFG())
+        .with({ type: "looking-for-raid" }, () => ACTIVITIES.lookingForRaid())
+        .with({ type: "raid-end" }, () => ACTIVITIES.raidEnd())
+        .with({ type: "new-raid", data: { type: "Online" } }, ({ data: { map: mapId } }) => {
+          raidStartTime = Date.now();
 
-        if (event.data.type === "Offline") {
-          client.setActivity({
-            largeImageText: "Escape from Tarkov",
-            largeImageKey: "cover-large",
-            startTimestamp: raidStartTime,
-            details: "In an offline Raid",
-            // state: "Playing Solo",
-          });
-        } else {
-          const mapId = event.data.map;
-
-          getData()
+          return getData()
             .then((data) => {
               const mapData = data.maps.find((m) => m.nameId.toLowerCase() === mapId.toLowerCase())!;
 
-              client.setActivity({
+              return {
                 largeImageText: mapData.name,
                 largeImageKey: `${mapData.name.toLowerCase().split(" ")[0]}-large`,
                 startTimestamp: raidStartTime,
-                // endTimestamp: raidStartTime + mapData.raidDuration * 60 * 1000,
-                endTimestamp: raidStartTime,
                 details: "In a Raid",
-                // state: "Playing Solo",
-              });
+                state: mapData.name,
+              };
             })
             .catch(() => {
-              client.setActivity({
+              return {
                 largeImageText: "Escape from Tarkov",
                 largeImageKey: "cover-large",
                 startTimestamp: raidStartTime,
                 details: "In a Raid",
-                // state: "Playing Solo",
-              });
+              };
             });
-        }
+        })
+        .with({ type: "new-raid", data: { type: "Offline" } }, () => ACTIVITIES.offlineRaid())
+        .run();
 
-        break;
-      case "main-menu":
-        client.setActivity({
-          largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-large",
-          startTimestamp: gameStartTime,
-          details: "Browsing the Menus",
-        });
-        break;
-      case "trader-screen":
-        client.setActivity({
-          largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-large",
-          startTimestamp: gameStartTime,
-          details: "Browsing the Vendors",
-        });
-        break;
-      case "flea-market-screen":
-        client.setActivity({
-          largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-large",
-          startTimestamp: gameStartTime,
-          details: "Browsing the Flea Market",
-        });
-        break;
-      case "prepare-to-escape":
-        switch (event.state) {
-          case "insurance":
-            client.setActivity({
-              largeImageText: "Escape from Tarkov",
-              largeImageKey: "cover-large",
-              startTimestamp: gameStartTime,
-              details: "Preparing to Escape",
-              state: "Insurance",
-            });
-            break;
-          case "confirmation":
-            client.setActivity({
-              largeImageText: "Escape from Tarkov",
-              largeImageKey: "cover-large",
-              startTimestamp: gameStartTime,
-              details: "Preparing to Escape",
-              state: "Waiting to Confirm",
-            });
-            break;
-          case "looking-for-group":
-            client.setActivity({
-              largeImageText: "Escape from Tarkov",
-              largeImageKey: "cover-large",
-              startTimestamp: gameStartTime,
-              details: "Preparing to Escape",
-              state: "Looking for Group",
-            });
-            break;
-        }
-        break;
-      case "looking-for-raid":
-        client.setActivity({
-          largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-large",
-          startTimestamp: Date.now(),
-          details: "Searching for a Raid",
-        });
-        break;
-
-      case "raid-end":
-        client.setActivity({
-          largeImageText: "Escape from Tarkov",
-          largeImageKey: "cover-large",
-          startTimestamp: gameStartTime,
-          details: "Raid ended",
-        });
-        break;
-    }
-  });
-});
-
-events.on("endGameSession", () => {
-  if (client.user) {
-    client.destroy();
+      client.setActivity(newActivity);
+    });
   }
 });
 
-events.on("killWatcher", () => {
+gameEvents.on("endGameSession", () => {
+  // if (isProcessRunning("BsgLauncher") && getConfig().watchLauncher) {
+  //
+  // } else {
+  gameEvents.emit("destroyClient");
+  // }
+});
+
+gameEvents.on("destroyClient", () => {
+  gameEvents.removeAllListeners("updateGameState");
+
+  STATE.setClientLoggedIn(false);
+
   if (client.user) {
     client.destroy();
   }

@@ -2,11 +2,12 @@ import { app, shell, BrowserWindow, ipcMain, dialog, Menu, Tray, nativeImage, No
 import path, { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
+import appIcon from "../../resources/icon.png?asset";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { Config, configSchema, DEFAULT_CONFIG } from "../config";
 import { ROOT_PATH, CONFIG_PATH } from "../constants";
-import { events } from "./events";
 import { fetchTarkovDevData } from "./gql";
+import { watcherEvents } from "./watcher-events";
 
 require("update-electron-app")();
 
@@ -59,9 +60,9 @@ export function getConfig() {
 export function updateConfig<TKey extends keyof Config>(key: TKey, value: Config[TKey]) {
   if (key === "isEnabled") {
     if (value) {
-      events.emit("spawnWatcher");
+      watcherEvents.emit("spawnLogWatcher");
     } else {
-      events.emit("killWatcher");
+      watcherEvents.emit("killLogWatcher");
     }
   } else if (key === "openOnStartup") {
     setLoginItemSettings(value as boolean);
@@ -70,8 +71,8 @@ export function updateConfig<TKey extends keyof Config>(key: TKey, value: Config
   const config = getConfig();
 
   if (key === "exePath" && config.isEnabled) {
-    events.emit("killWatcher");
-    events.emit("spawnWatcher");
+    watcherEvents.emit("killLogWatcher");
+    watcherEvents.emit("spawnLogWatcher");
   }
 
   try {
@@ -105,6 +106,7 @@ function handleMinimize() {
 function createWindow(): void {
   // Create the browser window.
   mainWindow = new BrowserWindow({
+    icon: nativeImage.createFromPath(appIcon),
     width: 400,
     height: 540,
     minWidth: 400,
@@ -175,7 +177,7 @@ app.whenReady().then(async () => {
   }
 
   if (getConfig().isEnabled) {
-    events.emit("spawnWatcher");
+    watcherEvents.emit("spawnLogWatcher");
   }
 
   ipcMain.handle("fetch-config", () => getConfig());
@@ -238,7 +240,7 @@ app.whenReady().then(async () => {
     tray.setContextMenu(contextMenu);
   });
 
-  tray = new Tray(nativeImage.createFromPath("../../resources/icon.ico"));
+  tray = new Tray(nativeImage.createFromPath(appIcon));
   tray.setToolTip("Tarkov Rich Presence");
   tray.setContextMenu(contextMenu);
 

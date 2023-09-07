@@ -6,6 +6,7 @@ export const configSchema = z.object({
   shouldCloseButtonQuit: z.boolean().default(false),
   openOnStartup: z.boolean().default(true),
   minimizedOnStartup: z.boolean().default(false),
+  watchLauncher: z.boolean().default(false),
 });
 
 export type Config = z.infer<typeof configSchema>;
